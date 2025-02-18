@@ -8,23 +8,28 @@
  ***************************************************************************/
 #include <WiFi.h>
 #include <WiFiUdp.h>
-
+#include <ESPmDNS.h>
 #include <Adafruit_SensorLab.h>
 Adafruit_SensorLab lab;
 
 #define NUMBER_SAMPLES 500
 
-const char* ssid = "[Replace with WiFi network name]";
-const char* password = "[Replace with WiFi network password]";
+const char* ssid = "Martin's";
+const char* password = "xvbi2567";
+const char* mdnsName = "rowing_hands";  // This will be the mDNS name (e.g., myarduino.local)
 
-const char* udpServerIP = "[Replace with VR Headset ip adress]";  // Replace with the IP address of the UDP server
-const int udpServerPort = "[Replace with VR Headset UDP server port]";             // Replace with the port number of the UDP server
+char* udpServerIP = "192.168.240.218";  // Replace with the IP address of the UDP server
+const int udpServerPort = 1234;  // Replace with the port number of the UDP server
+
+bool ipReceived = false;
 
 // Button 
 const int BUTTON_PIN_12 = 12;
 const int BUTTON_PIN_14 = 14;
 
 WiFiUDP udp;
+
+WiFiServer server(80);  // Declare the server globally
 
 Adafruit_Sensor *gyro;
 sensors_event_t event;
@@ -60,6 +65,18 @@ void setup(void) {
   Serial.println("Connected to WiFi!");
 
   while (!Serial) delay(10);     // will pause Zero, Leonardo, etc until serial console opens
+
+   // Start the mDNS responder
+  if (!MDNS.begin(mdnsName)) {
+    Serial.println("Error starting mDNS");
+    return;
+  }
+  Serial.printf("mDNS responder started at http://%s.local/\n", mdnsName);
+
+  // Advertise a service (example: HTTP on port 80)
+  MDNS.addService("http", "tcp", 80);
+
+  server.begin();
   
   Serial.println(F("Sensor Lab - Gyroscope Calibration!"));
   lab.begin();
@@ -168,7 +185,49 @@ void setup(void) {
 
 
 void loop() {
-  gyro->getEvent(&event);
+
+  if (!ipReceived) {
+    WiFiClient client = server.available();
+
+    if (client) {
+      Serial.println("Client connected...");
+
+      String request = "";
+      while (client.available()) {
+        char c = client.read();
+        request += c;
+      }
+
+      Serial.println("Full Client Request:");
+      Serial.println(request);
+
+      int atIndex = request.indexOf('@');
+      if (atIndex != -1) {
+        String body = request.substring(atIndex + 1);  // Extract everything after '@'
+        body.trim();  // Remove any whitespace or newlines
+
+        udpServerIP = strdup(body.c_str());  // Convert to C-string
+        ipReceived = true;
+        
+        Serial.println("Extracted UDP Server IP: " + String(udpServerIP));
+      } else {
+        Serial.println("Error: '@' not found in request!");
+      }
+
+      // Send a response to the client (optional, you can modify this part)
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/html");
+      client.println("Connection: close");
+      client.println();
+      client.println("<html><body><h1>Hello from Arduino!</h1></body></html>");
+      client.stop();
+      Serial.println("Client disconnected");
+      
+    }
+  }
+
+  if (ipReceived) {
+    gyro->getEvent(&event);
     gx = event.gyro.x - xOffset;
     gy = event.gyro.y - yOffset;
     gz = event.gyro.z - zOffset;
@@ -215,6 +274,7 @@ void loop() {
     else {
       udpCounter += 10;
     }
+  }
 
   delay(10); 
 }

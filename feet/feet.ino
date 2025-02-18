@@ -1,11 +1,11 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-const char* ssid = "[Replace with WiFi network name]";
-const char* password = "[Replace with WiFi network password]";
+const char* ssid = "Martin's";
+const char* password = "xvbi2567";
 
-const char* udpServerIP = "[Replace with VR Headset ip adress]";  // Replace with the IP address of the UDP server
-const int udpServerPort = "[Replace with VR Headset UDP server port]";             // Replace with the port number of the UDP server
+const char* udpServerIP = "192.168.231.218";  // Replace with the IP address of the UDP server
+const int udpServerPort = 1234;             // Replace with the port number of the UDP server
 
 WiFiUDP udp;
 
@@ -20,6 +20,7 @@ int fsrReadingRight = 0;
 
 int fsrReadingLeftToe = 0;
 int fsrReadingRightToe = 0;
+
 
 void setup() {
   Serial.begin(115200);
